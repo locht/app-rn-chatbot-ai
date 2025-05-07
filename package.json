@@ -8,7 +8,12 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "start-clear": "npx expo start --clear",
+    "start-port": "npx expo start --web --port 8081",
+    "android-port": "npx expo start --android --port 8082",
+    "ios-port": "npx expo start --ios --port 8083",
+    "tunnel": "npx expo start --tunnel"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",

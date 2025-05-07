@@ -5,6 +5,7 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -197,6 +198,7 @@ export default function HomeScreen() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <SafeAreaView style={{ flex: 1 }}>
       <View style={styles.container}>
         {/* Sidebar */}
         <View style={[styles.sidebar, !isSidebarOpen && { display: "none" }]}>
@@ -357,6 +359,7 @@ export default function HomeScreen() {
           </View>
         </View>
       </View>
+    </SafeAreaView>
     </KeyboardAvoidingView>
   );
 }

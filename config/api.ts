@@ -5,7 +5,7 @@ export const OPENROUTER_API_CONFIG = {
   model_auto: 'deepseek/deepseek-prover-v2:free',
   temperature: 0.7,
   max_tokens: 2000,
-  apiKey: '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',
+  apiKey: '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',
 };
 
 export const SUPPORTED_LANGUAGES = [
