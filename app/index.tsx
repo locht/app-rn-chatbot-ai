@@ -1,18 +1,25 @@
 import { Ionicons, Octicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from 'axios';
 import React, { useState } from "react";
 import {
   FlatList,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
+import Translator from "react-native-translator";
 import { OPENROUTER_API_CONFIG } from "../config/api";
-import { CHAT_ROOMS_KEY, getChatRooms, saveChatRoom, setCurrentRoom } from "./services/chatStorage";
+import {
+  CHAT_ROOMS_KEY,
+  getChatRooms,
+  saveChatRoom,
+  setCurrentRoom,
+} from "./services/chatStorage";
 const chatStorage = { getChatRooms, saveChatRoom, setCurrentRoom };
 
 // Mock data for sidebar items
@@ -23,29 +30,19 @@ const sidebarItems = [
   // { id: "4", name: "History", icon: "time-outline" },
 ];
 
-async function translateText(text: string, sourceLang: string, targetLang: string) {
-  try {
-    const response = await axios.post('https://translation.googleapis.com/language/translate/v2', {
-      q: text,
-      source: sourceLang,
-      target: targetLang,
-      key: 'AIzaSyB0yF5xInJ7QY2Dv7-5q2J7w1YQ6XqZ9jE'
-    });
-    return response.data.data.translations[0].translatedText;
-  } catch (error) {
-    console.error('Translation error:', error);
-    return text;
-  }
-}
-
 export default function HomeScreen() {
   const [messages, setMessages] = useState<any>([]);
   const [inputText, setInputText] = useState("");
+  const [translateText, setTranslateText] = useState("");
   const [currentRoom, setCurrentRoom] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [currentLanguage, setCurrentLanguage] = useState<'vi' | 'en'>('vi');
+  const [currentLanguage, setCurrentLanguage] = useState<"vi" | "en">("vi");
 
   const [chatHistory, setChatHistory] = useState([]);
+
+  React.useEffect(() => {
+    fetchChatHistory();
+  }, []);
 
   const fetchChatHistory = async () => {
     try {
@@ -61,37 +58,37 @@ export default function HomeScreen() {
     try {
       const rooms = await chatStorage.getChatRooms();
       const { [roomId]: _, ...remainingRooms } = rooms;
-      await AsyncStorage.setItem(CHAT_ROOMS_KEY, JSON.stringify(remainingRooms));
-      
+      await AsyncStorage.setItem(
+        CHAT_ROOMS_KEY,
+        JSON.stringify(remainingRooms)
+      );
+
       // Update chatHistory state immediately
       setChatHistory(remainingRooms);
       fetchChatHistory();
     } catch (error) {
-      console.error('Error deleting chat room:', error);
+      console.error("Error deleting chat room:", error);
     }
   };
-
-  React.useEffect(() => {
-    fetchChatHistory();
-  }, []);
 
   const handleNewChat = async () => {
     // Save current messages to current room if exists
     if (currentRoom && messages.length > 0) {
       await chatStorage.saveChatRoom(currentRoom, messages);
     }
-    
+
     const newRoomId = Date.now().toString();
     await chatStorage.setCurrentRoom(newRoomId);
     setCurrentRoom(newRoomId);
     setMessages([]);
-    setInputText('');
-    
+    setInputText("");
     // Refresh chat history
     fetchChatHistory();
   };
 
   const handleSend = async () => {
+    // console.log('inputText', inputText)
+    // console.log('translateText', translateText)
     if (inputText.trim()) {
       // Check if current room exists, if not create new one
       let roomId = currentRoom;
@@ -100,22 +97,18 @@ export default function HomeScreen() {
         await chatStorage.setCurrentRoom(roomId);
         setCurrentRoom(roomId);
       }
-      
+
       // Translate text if language is English
-      const textToSend = currentLanguage === 'en' ? await translateText(inputText, 'vi', 'en') : inputText;
-      console.log('textToSend', textToSend)
-      const displayText = currentLanguage === 'en' ? inputText : textToSend;
-      
       const newMessage = {
         id: String(messages.length + 1),
         sender: "User",
-        text: displayText,
+        text: translateText,
         timestamp: new Date().toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
         }),
       };
-      
+
       setMessages((prev: any) => [newMessage, ...prev]);
       setInputText("");
       try {
@@ -145,14 +138,10 @@ export default function HomeScreen() {
 
         const data = await response.json();
         const responseContent = data.choices[0].message.content;
-        const cleanContent = responseContent
-          .replace(/```[\s\S]*?```/g, "")
-          .trim();
-        const translatedContent = currentLanguage === 'en' ? await translateText(cleanContent, 'en', 'vi') : cleanContent;
         const botResponse = {
           id: String(messages.length + 2),
           sender: "OpenRouter",
-          text: translatedContent,
+          text: responseContent,
           timestamp: new Date().toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit",
@@ -162,7 +151,6 @@ export default function HomeScreen() {
 
         // Save messages to current room
         await chatStorage.saveChatRoom(roomId, messages);
-        
       } catch (error: any) {
         console.error("Error calling OpenRouter API:", error);
         let errorMessage;
@@ -173,7 +161,7 @@ export default function HomeScreen() {
           errorMessage =
             "API endpoint not found. Please check the configuration.";
         }
-        
+
         if (errorMessage) {
           setMessages((prev: any) => [
             ...prev,
@@ -200,7 +188,7 @@ export default function HomeScreen() {
       ]}
     >
       <Text style={styles.messageText}>{item.text}</Text>
-      {item.sender === "User" && currentLanguage === 'en' && (
+      {item.sender === "User" && currentLanguage === "en" && (
         <Text style={styles.translatedText}>(Translated from Vietnamese)</Text>
       )}
       {/* <Text style={styles.timestamp}>{item.timestamp}</Text> */}
@@ -208,141 +196,168 @@ export default function HomeScreen() {
   );
 
   return (
-    <View style={styles.container}>
-      {/* Sidebar */}
-      <View style={[styles.sidebar, !isSidebarOpen && {display: 'none'}]}>
-        <ScrollView>
-          {sidebarItems.map((item: any) => (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.sidebarItem}
-              onPress={item.id === "2" ? handleNewChat : undefined}
-            >
-              <Ionicons name={item.icon} size={20} color="#ccc" />
-              <Text style={styles.sidebarText}>{item.name}</Text>
-            </TouchableOpacity>
-          ))}
-          <View style={styles.divider} />
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View style={styles.container}>
+        {/* Sidebar */}
+        <View style={[styles.sidebar, !isSidebarOpen && { display: "none" }]}>
+          <ScrollView>
+            {sidebarItems.map((item: any) => (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.sidebarItem}
+                onPress={item.id === "2" ? handleNewChat : undefined}
+              >
+                <Ionicons name={item.icon} size={20} color="#ccc" />
+                <Text style={styles.sidebarText}>{item.name}</Text>
+              </TouchableOpacity>
+            ))}
+            <View style={styles.divider} />
             <View>
               <Text style={styles.historyTitle}>Lịch sử chat</Text>
               {Object.entries(chatHistory).map(([roomId, messages]: any) => {
-                const firstMessage = messages[0]?.text || 'New Chat';
+                const firstMessage = messages[0]?.text || "New Chat";
                 return (
-                  <View  key={roomId} style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
-                  <TouchableOpacity 
-                    style={styles.historyItem}
-                    onPress={() => {
-                      setCurrentRoom(roomId);
-                      setMessages(messages);
+                  <View
+                    key={roomId}
+                    style={{
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      alignItems: "center",
                     }}
                   >
-                    <Text style={styles.historyText}>
-                      {firstMessage.length > 20
-                        ? firstMessage.substring(0, 20) + "..."
-                        : firstMessage}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    onPress={() => deleteChatRoom(roomId)}
-                    style={{padding: 8}}
-                  >
-                    <Ionicons name="trash-outline" size={16} color="#ccc" />
-                  </TouchableOpacity>
-                </View>
+                    <TouchableOpacity
+                      style={styles.historyItem}
+                      onPress={() => {
+                        setCurrentRoom(roomId);
+                        setMessages(messages);
+                      }}
+                    >
+                      <Text style={styles.historyText}>
+                        {firstMessage.length > 20
+                          ? firstMessage.substring(0, 20) + "..."
+                          : firstMessage}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => deleteChatRoom(roomId)}
+                      style={{ padding: 8 }}
+                    >
+                      <Ionicons name="trash-outline" size={16} color="#ccc" />
+                    </TouchableOpacity>
+                  </View>
                 );
               })}
             </View>
-        </ScrollView>
-        <View style={styles.sidebarFooter}>
-          <TouchableOpacity style={styles.sidebarItem}>
-            <Ionicons name="cloud-upload-outline" size={20} color="#ccc" />
-            <Text style={styles.sidebarText}>Upgrade plan</Text>
-          </TouchableOpacity>
-          <Text style={styles.sidebarFooterText}>
-            More access to the best models
-          </Text>
+          </ScrollView>
+          {/* <View style={styles.sidebarFooter}>
+            <TouchableOpacity style={styles.sidebarItem}>
+              <Ionicons name="cloud-upload-outline" size={20} color="#ccc" />
+              <Text style={styles.sidebarText}>Upgrade plan</Text>
+            </TouchableOpacity>
+            <Text style={styles.sidebarFooterText}>
+              More access to the best models
+            </Text>
+          </View> */}
         </View>
-      </View>
 
-      {/* Main Chat Area */}
-      <View style={styles.chatArea}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => setIsSidebarOpen(!isSidebarOpen)}>
-            <Octicons name={!isSidebarOpen ? "sidebar-collapse" : "sidebar-expand"} size={20} color="#ccc" style={styles.headerIcon} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Chat</Text>
-          <View style={styles.headerIcons}>
-            <TouchableOpacity>
-              <Ionicons
-                name="share-outline"
-                size={24}
+        {/* Main Chat Area */}
+        <View style={styles.chatArea}>
+          {/* Header */}
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => setIsSidebarOpen(!isSidebarOpen)}>
+              <Octicons
+                name={!isSidebarOpen ? "sidebar-collapse" : "sidebar-expand"}
+                size={20}
                 color="#ccc"
                 style={styles.headerIcon}
               />
             </TouchableOpacity>
-            <TouchableOpacity>
-              <Ionicons
-                name="ellipsis-horizontal"
-                size={24}
-                color="#ccc"
-                style={styles.headerIcon}
+            <Text style={styles.headerTitle}>Chat</Text>
+            <View style={styles.headerIcons}>
+              <TouchableOpacity>
+                <Ionicons
+                  name="share-outline"
+                  size={24}
+                  color="#ccc"
+                  style={styles.headerIcon}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity>
+                <Ionicons
+                  name="ellipsis-horizontal"
+                  size={24}
+                  color="#ccc"
+                  style={styles.headerIcon}
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Messages */}
+          <View style={styles.messagesContainer}>
+            <FlatList
+              data={messages}
+              renderItem={renderMessage}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.messageList}
+              inverted
+            />
+          </View>
+
+          {/* Input Area */}
+          <View style={styles.inputContainer}>
+            <View style={{ opacity: 0, width: 0, height: 0 }}>
+              <Translator
+                from="vi"
+                to="en"
+                value={inputText}
+                onTranslated={(t) => setTranslateText(t)}
               />
+            </View>
+            <TextInput
+              style={styles.input}
+              placeholder="Bạn đang cần hỗ trợ điều gì?"
+              placeholderTextColor="#888"
+              value={inputText}
+              onChangeText={setInputText}
+              onSubmitEditing={handleSend}
+              // multiline
+            />
+            {/* <TouchableOpacity style={styles.inputButton}>
+              <Ionicons name="add-circle-outline" size={24} color="#ccc" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.inputButton}>
+              <Ionicons name="search-outline" size={20} color="#ccc" />
+              <Text style={styles.inputButtonText}>Tìm kiếm</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.inputButton}>
+              <Ionicons name="bulb-outline" size={20} color="#ccc" />
+              <Text style={styles.inputButtonText}>Ý tưởng</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.inputButton}>
+              <Ionicons name="scan-outline" size={20} color="#ccc" />
+              <Text style={styles.inputButtonText}>Chuyên sâu</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.inputButton}>
+              <Ionicons name="image-outline" size={20} color="#ccc" />
+              <Text style={styles.inputButtonText}>Hình ảnh</Text>
+            </TouchableOpacity> */}
+            <TouchableOpacity
+              style={styles.inputButton}
+              onPress={() =>
+                setCurrentLanguage(currentLanguage === "vi" ? "en" : "vi")
+              }
+            >
+              <Ionicons name="language-outline" size={20} color="#ccc" />
+              <Text style={styles.inputButtonText}>Ngôn ngữ</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
+              <Ionicons name="send-outline" size={24} color="#fff" />
             </TouchableOpacity>
           </View>
         </View>
-
-        {/* Messages */}
-        <View style={styles.messagesContainer}>
-          <FlatList
-            data={messages}
-            renderItem={renderMessage}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.messageList}
-            inverted
-          />
-        </View>
-
-        {/* Input Area */}
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Bạn đang cần hỗ trợ điều gì?"
-            placeholderTextColor="#888"
-            value={inputText}
-            onChangeText={setInputText}
-            onSubmitEditing={handleSend}
-            // multiline
-          />
-          <TouchableOpacity style={styles.inputButton}>
-            <Ionicons name="add-circle-outline" size={24} color="#ccc" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.inputButton}>
-            <Ionicons name="search-outline" size={20} color="#ccc" />
-            <Text style={styles.inputButtonText}>Tìm kiếm</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.inputButton}>
-            <Ionicons name="bulb-outline" size={20} color="#ccc" />
-            <Text style={styles.inputButtonText}>Ý tưởng</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.inputButton}>
-            <Ionicons name="scan-outline" size={20} color="#ccc" />
-            <Text style={styles.inputButtonText}>Chuyên sâu</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.inputButton}>
-            <Ionicons name="image-outline" size={20} color="#ccc" />
-            <Text style={styles.inputButtonText}>Hình ảnh</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.inputButton} onPress={() => setCurrentLanguage(currentLanguage === 'vi' ? 'en' : 'vi')}>
-            <Ionicons name="language-outline" size={20} color="#ccc" />
-            <Text style={styles.inputButtonText}>Chuyển ngôn ngữ</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
-            <Ionicons name="send-outline" size={24} color="#fff" />
-          </TouchableOpacity>
-        </View>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -473,7 +488,7 @@ const styles = StyleSheet.create({
   translatedText: {
     fontSize: 12,
     color: "#aaa",
-    fontStyle: 'italic',
+    fontStyle: "italic",
     marginTop: 4,
   },
   timestamp: {
@@ -512,7 +527,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   sendButton: {
-    backgroundColor: "#555", // Darker button
+    // backgroundColor: "#555", // Darker button
     borderRadius: 15, // Circular
     padding: 8,
     marginLeft: 5,
