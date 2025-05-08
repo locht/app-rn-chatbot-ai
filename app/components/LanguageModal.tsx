@@ -1,34 +1,50 @@
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Language, languages } from '../constants/languageCode';
+import FlagIcon from './FlagIcon';
 
-interface LanguagePair {
-  id: string;
-  name: string;
-  from: string;
-  to: string;
+interface LanguageModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onSelectLanguage: (language: Language) => void;
+  position: {
+    top: number;
+    right: number;
+  };
+  mode: 'from' | 'to';
+  currentLanguage?: Language;
 }
 
 interface LanguageModalProps {
   visible: boolean;
   onClose: () => void;
-  onSelectLanguage: (from: string, to: string) => void;
+  onSelectLanguage: (language: Language) => void;
+  position: {
+    top: number;
+    right: number;
+  };
 }
 
-const LanguageModal: React.FC<LanguageModalProps> = ({ visible, onClose, onSelectLanguage }) => {
-  // Danh sách các cặp ngôn ngữ hỗ trợ
-  const languagePairs: LanguagePair[] = [
-    { id: '1', name: 'Tiếng Việt', from: 'vi', to: 'vi' },
-    { id: '2', name: 'Tiếng Anh', from: 'en', to: 'en' },
-    { id: '3', name: 'Việt → Anh', from: 'vi', to: 'en' },
-    { id: '4', name: 'Anh → Việt', from: 'en', to: 'vi' },
-    { id: '5', name: 'Pháp', from: 'fr', to: 'fr' },
-    { id: '6', name: 'Việt → Pháp', from: 'vi', to: 'fr' },
-    { id: '7', name: 'Pháp → Việt', from: 'fr', to: 'vi' },
-    { id: '8', name: 'Trung Quốc', from: 'zh', to: 'zh' },
-    { id: '9', name: 'Việt → Trung', from: 'vi', to: 'zh' },
-    { id: '10', name: 'Trung → Việt', from: 'zh', to: 'vi' },
-  ];
+const LanguageModal: React.FC<LanguageModalProps> = ({ visible, onClose, onSelectLanguage, position, mode, currentLanguage }) => {
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredLanguages = useMemo(() => {
+    const query = searchQuery.toLowerCase();
+    return languages.filter(language =>
+      language.name.toLowerCase().includes(query) ||
+      language.code.toLowerCase().includes(query)
+    );
+  }, [searchQuery]);
+
+  const sortedLanguages = useMemo(() => {
+    if (!currentLanguage) return filteredLanguages;
+    
+    return [
+      currentLanguage,
+      ...filteredLanguages.filter(lang => lang.code !== currentLanguage.code)
+    ];
+  }, [currentLanguage, filteredLanguages]);
 
   return (
     <Modal
@@ -38,26 +54,49 @@ const LanguageModal: React.FC<LanguageModalProps> = ({ visible, onClose, onSelec
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
-        <View style={styles.modalContainer}>
+        <View style={[styles.modalContainer, { top: position.top, right: position.right }]}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Chọn ngôn ngữ</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <Ionicons name="close" size={24} color="#ccc" />
             </TouchableOpacity>
           </View>
+
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Tìm kiếm ngôn ngữ"
+              placeholderTextColor="#666"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery !== '' && (
+              <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
+                <Ionicons name="close-circle" size={20} color="#666" />
+              </TouchableOpacity>
+            )}
+          </View>
           
           <ScrollView style={styles.languageList}>
-            {languagePairs.map((pair) => (
+            {sortedLanguages.map((language) => (
               <TouchableOpacity
-                key={pair.id}
-                style={styles.languageItem}
+                key={language.code}
+                style={[styles.languageItem, currentLanguage?.code === language.code && styles.selectedLanguageItem]}
                 onPress={() => {
-                  onSelectLanguage(pair.from, pair.to);
+                  onSelectLanguage(language);
                   onClose();
                 }}
               >
-                <Text style={styles.languageName}>{pair.name}</Text>
-                <Ionicons name="chevron-forward" size={20} color="#888" />
+                <View style={styles.languageItemContent}>
+                  <FlagIcon countryCode={language.flag} size={20} />
+                  <Text style={[styles.languageName, currentLanguage?.code === language.code && styles.selectedLanguageName]}>
+                    {language.name}
+                  </Text>
+                </View>
+                {currentLanguage?.code === language.code && (
+                  <Ionicons name="checkmark" size={20} color="#4CAF50" />
+                )}
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -68,20 +107,60 @@ const LanguageModal: React.FC<LanguageModalProps> = ({ visible, onClose, onSelec
 };
 
 const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
+  searchContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#333',
+    backgroundColor: '#1a1a1a',
+  },
+  searchIcon: {
+    marginRight: 10,
+  },
+  searchInput: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 16,
+    padding: 0,
+  },
+  clearButton: {
+    marginLeft: 10,
+    padding: 2,
+  },
+  selectedLanguageItem: {
+    backgroundColor: '#2a2a2a',
+  },
+  selectedLanguageName: {
+    color: '#4CAF50',
+  },
+  languageItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  modalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent',
   },
   modalContainer: {
-    width: '80%',
-    maxHeight: '70%',
+    position: 'absolute',
+    width: 300,
+    maxHeight: 300,
     backgroundColor: '#212121',
     borderRadius: 10,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#333',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   modalHeader: {
     flexDirection: 'row',

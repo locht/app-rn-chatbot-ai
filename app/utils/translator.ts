@@ -9,7 +9,7 @@ interface TranslatorOptions {
 
 // Hàm dịch cho web sử dụng các API dịch thuật
 const webTranslate = async (options: TranslatorOptions) => {
-//   console.log('webTranslate options:', options);
+  console.log('webTranslate options:', options);
   const { from, to, value, onTranslated } = options;
   
   if (!value.trim()) {
@@ -34,7 +34,7 @@ const webTranslate = async (options: TranslatorOptions) => {
         // Kết quả trả về có cấu trúc phức tạp, phần dịch nằm ở data[0][0][0]
         if (data && data[0] && data[0][0] && data[0][0][0]) {
           translatedText = data[0][0][0];
-        //   console.log('Google Translate result:', translatedText);
+          console.log('Google Translate result:', translatedText);
         }
       }
     } catch (googleError) {

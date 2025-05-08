@@ -1,7 +1,8 @@
 import { Ionicons, Octicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
+  Dimensions,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -12,9 +13,12 @@ import {
   TextInput,
   TouchableOpacity,
   View
-} from "react-native";
+} from 'react-native';
 import { fetchGeminiAPI } from "../config/api";
+import FlagIcon from "./components/FlagIcon";
+import LanguageModal from "./components/LanguageModal";
 import TranslatorWrapper from "./components/TranslatorWrapper";
+import { languages } from "./constants/languageCode";
 import {
   CHAT_ROOMS_KEY,
   getChatRooms,
@@ -37,7 +41,14 @@ export default function HomeScreen() {
   const [translateText, setTranslateText] = useState("");
   const [currentRoom, setCurrentRoom] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [currentLanguage, setCurrentLanguage] = useState<"vi" | "en">("vi");
+  // const [currentLanguage, setCurrentLanguage] = useState("vi");
+  const [isLanguageModalVisible, setIsLanguageModalVisible] = useState(false);
+  const [modalPosition, setModalPosition] = useState({ top: 0, right: 0 });
+  const languageFromButtonRef: any = useRef(null);
+  const languageToButtonRef: any = useRef(null);
+  const [languageFrom, setLanguageFrom] = useState("vi");
+  const [languageTo, setLanguageTo] = useState("en");
+  const [mode, setMode] = useState<'from' | 'to'>('from');
 
   const [chatHistory, setChatHistory] = useState([]);
 
@@ -89,7 +100,7 @@ export default function HomeScreen() {
 
   const handleSend = async () => {
     // console.log('inputText', inputText)
-    // console.log('translateText', translateText)
+    console.log('translateText', translateText)
     if (inputText.trim()) {
       // Check if current room exists, if not create new one
       let roomId = currentRoom;
@@ -114,7 +125,7 @@ export default function HomeScreen() {
       setInputText("");
       try {
         const responseContent = await fetchGeminiAPI(inputText);
-        // console.log("responseContent", responseContent);
+        console.log("responseContent", responseContent);
         const botResponse = {
           id: String(messages.length + 2),
           sender: "OpenRouter",
@@ -165,9 +176,9 @@ export default function HomeScreen() {
       ]}
     >
       <Text style={styles.messageText}>{item.text}</Text>
-      {item.sender === "User" && currentLanguage === "en" && (
+      {/* {item.sender === "User" && currentLanguage === "en" && (
         <Text style={styles.translatedText}>(Translated from Vietnamese)</Text>
-      )}
+      )} */}
       {/* <Text style={styles.timestamp}>{item.timestamp}</Text> */}
     </View>
   );
@@ -285,8 +296,8 @@ export default function HomeScreen() {
           {/* Input Area */}
           <View style={styles.inputContainer}>
             <TranslatorWrapper
-              from="vi"
-              to="en"
+              from={languageFrom}
+              to={languageTo}
               value={inputText}
               onTranslated={(t) => setTranslateText(t)}
             />
@@ -318,15 +329,75 @@ export default function HomeScreen() {
               <Ionicons name="image-outline" size={20} color="#ccc" />
               <Text style={styles.inputButtonText}>Hình ảnh</Text>
             </TouchableOpacity> */}
-            <TouchableOpacity
-              style={styles.inputButton}
-              onPress={() =>
-                setCurrentLanguage(currentLanguage === "vi" ? "en" : "vi")
-              }
-            >
-              <Ionicons name="language-outline" size={20} color="#ccc" />
-              <Text style={styles.inputButtonText}>Ngôn ngữ</Text>
-            </TouchableOpacity>
+            <View style={styles.languageButtons}>
+              <TouchableOpacity
+                ref={languageFromButtonRef}
+                style={styles.languageButton}
+                onPress={() => {
+                  setMode('from');
+                  if (languageFromButtonRef.current) {
+                    languageFromButtonRef.current.measureInWindow((x: any, y: any, width: any, height: any) => {
+                      const windowHeight = Dimensions.get('window').height;
+                      const modalHeight = 300;
+                      const spaceBelow = windowHeight - y;
+                      const showBelow = spaceBelow >= modalHeight;
+
+                      setModalPosition({
+                        top: showBelow ? y + height : y - modalHeight,
+                        right: Dimensions.get('window').width - (x + width)
+                      });
+                      setIsLanguageModalVisible(true);
+                    });
+                  }
+                }}
+              >
+                <FlagIcon countryCode={languages.find((l: any) => l.code === languageFrom)?.flag || 'vi'} size={20} />
+                <Text style={styles.languageButtonText}>{languages.find((l: any) => l.code === languageFrom)?.name || 'Tiếng Việt'}</Text>
+              </TouchableOpacity>
+              <View style={styles.languageArrow}>
+                <Ionicons name="arrow-forward" size={16} color="#666" />
+              </View>
+              <TouchableOpacity
+                ref={languageToButtonRef}
+                style={styles.languageButton}
+                onPress={() => {
+                  setMode('to');
+                  if (languageToButtonRef.current) {
+                    languageToButtonRef.current.measureInWindow((x: any, y: any, width: any, height: any) => {
+                      const windowHeight = Dimensions.get('window').height;
+                      const modalHeight = 300;
+                      const spaceBelow = windowHeight - y;
+                      const showBelow = spaceBelow >= modalHeight;
+
+                      setModalPosition({
+                        top: showBelow ? y + height : y - modalHeight,
+                        right: Dimensions.get('window').width - (x + width)
+                      });
+                      setIsLanguageModalVisible(true);
+                    });
+                  }
+                }}
+              >
+                <FlagIcon countryCode={languages.find((l: any)=> l.code === languageTo)?.flag || 'en'} size={20} />
+                <Text style={styles.languageButtonText}>{languages.find((l: any)=> l.code === languageTo)?.name || 'English'}</Text>
+              </TouchableOpacity>
+            </View>
+            <LanguageModal
+              visible={isLanguageModalVisible}
+              onClose={() => setIsLanguageModalVisible(false)}
+              onSelectLanguage={(language) => {
+                if (mode === 'from') {
+                  setLanguageFrom(language.code);
+                } else {
+                  setLanguageTo(language.code);
+                }
+                // setCurrentLanguage(language.code);
+                setIsLanguageModalVisible(false);
+              }}
+              position={modalPosition}
+              mode={mode}
+              currentLanguage={mode === 'from' ? languages.find((l: any)=> l.code === languageFrom) : languages.find((l: any) => l.code === languageTo)}
+            />
             <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
               <Ionicons name="send-outline" size={24} color="#fff" />
             </TouchableOpacity>
@@ -339,6 +410,30 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  languageButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2a2a2a',
+    borderRadius: 20,
+    padding: 5,
+    marginHorizontal: 5,
+  },
+  languageButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 15,
+    gap: 5,
+  },
+  languageButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    marginLeft: 5,
+  },
+  languageArrow: {
+    paddingHorizontal: 5,
+  },
   container: {
     flex: 1,
     flexDirection: "row",
