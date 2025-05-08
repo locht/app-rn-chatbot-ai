@@ -13,8 +13,8 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
-import Translator from "react-native-translator";
-import { OPENROUTER_API_CONFIG } from "../config/api";
+import { fetchGeminiAPI } from "../config/api";
+import TranslatorWrapper from "./components/TranslatorWrapper";
 import {
   CHAT_ROOMS_KEY,
   getChatRooms,
@@ -103,7 +103,7 @@ export default function HomeScreen() {
       const newMessage = {
         id: String(messages.length + 1),
         sender: "User",
-        text: translateText,
+        text: translateText || inputText,
         timestamp: new Date().toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
@@ -113,32 +113,8 @@ export default function HomeScreen() {
       setMessages((prev: any) => [newMessage, ...prev]);
       setInputText("");
       try {
-        const response = await fetch(
-          `${OPENROUTER_API_CONFIG.baseURL}${OPENROUTER_API_CONFIG.chatEndpoint}`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${OPENROUTER_API_CONFIG.apiKey}`,
-            },
-            body: JSON.stringify({
-              model: OPENROUTER_API_CONFIG.model,
-              messages: [{ role: "user", content: inputText }],
-              temperature: OPENROUTER_API_CONFIG.temperature,
-              max_tokens: OPENROUTER_API_CONFIG.max_tokens,
-            }),
-          }
-        );
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(
-            errorData.error?.message || `HTTP error! status: ${response.status}`
-          );
-        }
-
-        const data = await response.json();
-        const responseContent = data.choices[0].message.content;
+        const responseContent = await fetchGeminiAPI(inputText);
+        // console.log("responseContent", responseContent);
         const botResponse = {
           id: String(messages.length + 2),
           sender: "OpenRouter",
@@ -308,14 +284,12 @@ export default function HomeScreen() {
 
           {/* Input Area */}
           <View style={styles.inputContainer}>
-            <View style={{ opacity: 0, width: 0, height: 0 }}>
-              <Translator
-                from="vi"
-                to="en"
-                value={inputText}
-                onTranslated={(t) => setTranslateText(t)}
-              />
-            </View>
+            <TranslatorWrapper
+              from="vi"
+              to="en"
+              value={inputText}
+              onTranslated={(t) => setTranslateText(t)}
+            />
             <TextInput
               style={styles.input}
               placeholder="Bạn đang cần hỗ trợ điều gì?"
