@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo, useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { Language, languages } from '../constants/languageCode';
+import { Language, languages } from '../utils/languageCode';
 import FlagIcon from './FlagIcon';
 
 interface LanguageModalProps {

@@ -18,13 +18,13 @@ import { fetchGeminiAPI } from "../config/api";
 import FlagIcon from "./components/FlagIcon";
 import LanguageModal from "./components/LanguageModal";
 import TranslatorWrapper from "./components/TranslatorWrapper";
-import { languages } from "./constants/languageCode";
 import {
   CHAT_ROOMS_KEY,
   getChatRooms,
   saveChatRoom,
   setCurrentRoom,
 } from "./services/chatStorage";
+import { languages } from "./utils/languageCode";
 const chatStorage = { getChatRooms, saveChatRoom, setCurrentRoom };
 
 // Mock data for sidebar items
